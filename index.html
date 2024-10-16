@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Habit Tracker</title>
+    <title>Habit Tracker</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             background-color: #f0f0f0;
+            padding: 20px;
+            box-sizing: border-box;
         }
         .container {
             background-color: white;
@@ -36,6 +38,7 @@
             font-size: 24px;
             cursor: pointer;
             transition: transform 0.1s;
+            touch-action: manipulation;
         }
         .btn:active {
             transform: scale(0.95);
@@ -51,7 +54,7 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
-        #submitBtn {
+        #submitBtn, #signInBtn, #signOutBtn {
             background-color: #2196F3;
             color: white;
             border: none;
@@ -59,6 +62,7 @@
             border-radius: 5px;
             cursor: pointer;
             width: 100%;
+            margin-top: 10px;
         }
         #message {
             margin-top: 20px;
@@ -69,25 +73,101 @@
             color: #666;
             margin: 10px 0;
         }
+        #signOutBtn {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Habit Tracker</h2>
-        <input type="text" id="habitInput" class="input-field" placeholder="What was the habit?">
-        <div class="helper-text">Does this behavior help me become the person I wish to be?</div>
-        <div class="btn-container">
-            <button class="btn btn-positive" onclick="setHabitType('+')">+</button>
-            <button class="btn btn-neutral" onclick="setHabitType('=')">=</button>
-            <button class="btn btn-negative" onclick="setHabitType('-')">-</button>
+        <div id="signInBtn">Sign in with Google</div>
+        <button id="signOutBtn" onclick="handleSignOut()">Sign Out</button>
+        <div id="habitForm" style="display: none;">
+            <input type="text" id="habitInput" class="input-field" placeholder="What was the habit?">
+            <div class="helper-text">Does this behavior help me become the person I wish to be?</div>
+            <div class="btn-container">
+                <button class="btn btn-positive" onclick="setHabitType('+')">+</button>
+                <button class="btn btn-neutral" onclick="setHabitType('=')">=</button>
+                <button class="btn btn-negative" onclick="setHabitType('-')">-</button>
+            </div>
+            <input type="text" id="cueInput" class="input-field" placeholder="What was the cue?">
+            <button id="submitBtn" onclick="submitHabit()">Submit</button>
         </div>
-        <input type="text" id="cueInput" class="input-field" placeholder="What was the cue?">
-        <button id="submitBtn" onclick="submitHabit()">Submit</button>
         <div id="message"></div>
     </div>
 
     <script>
+        const CLIENT_ID = '776693195485-ouirigv6uojvubqj20epm939ekn9avcc.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyBwEtZIak5CWL-0kTI9LmopGDzYyruXnJw';
+        const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
         let habitType = null;
+
+        document.getElementById('signInBtn').style.display = 'none';
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: [DISCOVERY_DOC],
+            });
+            gapiInited = true;
+            maybeEnableButtons();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // defined later
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                document.getElementById('signInBtn').style.display = 'block';
+            }
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                document.getElementById('signInBtn').style.display = 'none';
+                document.getElementById('signOutBtn').style.display = 'block';
+                document.getElementById('habitForm').style.display = 'block';
+                document.getElementById('message').innerText = 'Logged in successfully!';
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        function handleSignOut() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+                document.getElementById('signOutBtn').style.display = 'none';
+                document.getElementById('signInBtn').style.display = 'block';
+                document.getElementById('habitForm').style.display = 'none';
+                document.getElementById('message').innerText = 'Signed out successfully!';
+            }
+        }
 
         function setHabitType(type) {
             habitType = type;
@@ -95,7 +175,7 @@
             event.target.style.opacity = '1';
         }
 
-        function submitHabit() {
+        async function submitHabit() {
             if (!habitType) {
                 alert("Please select a habit type (+, =, or -)");
                 return;
@@ -107,27 +187,23 @@
             const dayOfWeek = timestamp.toLocaleString('en-US', { weekday: 'long' });
             const timeOfDay = timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-            const data = {
-                habit: habit,
-                type: habitType,
-                cue: cue,
-                dayOfWeek: dayOfWeek,
-                timeOfDay: timeOfDay
-            };
+            try {
+                const response = await gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: '1IIpxm5KpDqxKtiom0glCLxRz67FstjcyBu7oj4LUUBk',
+                    range: 'Sheet1',
+                    valueInputOption: 'USER_ENTERED',
+                    insertDataOption: 'INSERT_ROWS',
+                    resource: {
+                        values: [[habit, habitType, cue, dayOfWeek, timeOfDay]]
+                    }
+                });
 
-            fetch(https://script.google.com/macros/s/AKfycbyH5BA07785J-T7_vrKW8evUzGhFQrDg7PU1C-hYvjMyszOp5XQtvFZMT0tuwDBMypR/exec, {
-                method: 'POST',
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                console.log('Success:', result);
-                document.getElementById('message').innerText = "Oh, how interesting that they would do such a thing.";
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('message').innerText = "An error occurred. Please try again.";
-            });
+                console.log('Habit logged:', response);
+                document.getElementById('message').innerText = "Habit logged successfully!";
+            } catch (err) {
+                document.getElementById('message').innerText = `Error: ${err.message}`;
+                return;
+            }
 
             // Reset the form
             habitType = null;
@@ -135,6 +211,10 @@
             document.getElementById('cueInput').value = '';
             document.querySelectorAll('.btn').forEach(btn => btn.style.opacity = '1');
         }
+
+        document.getElementById('signInBtn').addEventListener('click', handleAuthClick);
     </script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
