@@ -5,7 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Habit Tracker</title>
     <style>
-        /* ... (keep the existing styles) ... */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        .btn-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .btn-positive { background-color: #4CAF50; color: white; }
+        .btn-neutral { background-color: #FFC107; color: black; }
+        .btn-negative { background-color: #F44336; color: white; }
+        .input-field {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        #submitBtn, #signInBtn, #signOutBtn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        #message {
+            margin-top: 20px;
+            font-style: italic;
+        }
+        .helper-text {
+            font-size: 0.9em;
+            color: #666;
+            margin: 10px 0;
+        }
+        #signOutBtn {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -14,7 +84,15 @@
         <div id="signInBtn">Sign in with Google</div>
         <button id="signOutBtn" onclick="handleSignOut()">Sign Out</button>
         <div id="habitForm" style="display: none;">
-            <!-- ... (keep the existing form content) ... -->
+            <input type="text" id="habitInput" class="input-field" placeholder="What was the habit?">
+            <div class="helper-text">Does this behavior help me become the person I wish to be?</div>
+            <div class="btn-container">
+                <button class="btn btn-positive" onclick="setHabitType('+')">+</button>
+                <button class="btn btn-neutral" onclick="setHabitType('=')">=</button>
+                <button class="btn btn-negative" onclick="setHabitType('-')">-</button>
+            </div>
+            <input type="text" id="cueInput" class="input-field" placeholder="What was the cue?">
+            <button id="submitBtn" onclick="submitHabit()">Submit</button>
         </div>
         <div id="message"></div>
     </div>
