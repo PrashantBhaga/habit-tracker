@@ -127,6 +127,7 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
+                ux_mode: 'popup',
                 callback: '', // defined later
             });
             gisInited = true;
